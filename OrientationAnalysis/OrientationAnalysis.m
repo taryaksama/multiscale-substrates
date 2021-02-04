@@ -1,45 +1,47 @@
-% For analysis of orientation of nematic cells in stripes 
+% For analysis of orientation of nematic cells in stripes - general code
 % (developed during the thesis of Thibault Aryaksama)
 %
 % INPUT:
 %   * .tif images (uint 8 or uint16) obtained with the OrientationJ plugin of Fiji
 %
 % ANALYSIS:
-%   * 1. aaa
+%   * 0. parameters setting
+%   * 1. general orientation analysis for each FOV (histograms, over time,
+%   averaged, ...)
 %   * 2. aaa
 %   * 3. aaa
 
-%% 0.
+%% 0. set parameters of experiment
 
 clear all
 clc
 
 addpath('\functions');
 fig = 'on'; % display figures
-exp_name = input('Experiment name ? \n','s'); % enter experiment 
+exp_name = input('Experiment name ? \n','s'); % enter experiment name
 
+% binning parameters (width range)
+bw_sz = 100; % width increment
+bw = 0:bw_sz:1200; % width range
+ep = 0; % origin shift
+bx_sz = 20; % X-value increment (for profiles binning)
+
+% set and create analysis folder
 pathname = 'G:\ANALYSIS\transition stripes abrasions\C2C12 stripes abrasions\defect free';
 mkdir([pathname,'\analysis']);
-% mkdir([pathname,'\analysis\figures']);
 d = dir([pathname,'\orient']);
-
-
-
-% binning parameters
-bw_sz = 100;
-bw = 0:bw_sz:1200;
-ep = 0;
-bx_sz = 20;
 
 %% 1. compute average angle over stripe width
 
 dw = 32; % size of ROI
 r = 0.5; % overlap of ROIs
 
+% create and save a Matlab(.m) file for each FOV with analysis related to
+% cells orientations
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
     if d(i).isdir==0
-        AngleROI_v092020(pathname, d(i).name, dw, r, 'off');
+        AngleROI(pathname, d(i).name, dw, r, 'off');
     end
 end
 
