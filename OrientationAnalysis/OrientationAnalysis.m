@@ -47,7 +47,7 @@ end
 
 %% 2. orientation vs. width
 
-pos = 'middle'; % look at angles in the middle of stripes
+pos = 'middle'; % look at angles in the middle/edge of stripes
 
 % load orientation data
 switch pos
@@ -59,10 +59,9 @@ end
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
     if d(i).isdir==0
-        
         load([pathname,'\analysis\orientation data\',strrep(d(i).name,'.tif','.mat')]);
-        
         px2mic = setpx2mic(d(i).name,'orientation');
+        
         Angw(1,1,i) = data_orient.Width * px2mic;
         switch pos
             case 'middle'
@@ -102,8 +101,10 @@ end
 Angw1_bin(find(prod(isnan(Angw1_bin)==1,2)),:) = [];
 Angw2_bin(find(prod(isnan(Angw2_bin)==1,2)),:) = [];
 
-%% 3. profiles
+%% 3. profiles of orientation
+% theta vs. X
 
+% load orientation data
 AngX = NaN*ones(100,3,length(d));
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
@@ -117,63 +118,19 @@ for i = 1:length(d)
         AngX(1:length(xprofile),2,i) = yprofile;
         sprofile = data_orient.AverageAngle.Profile(:,3);
         AngX(1:length(xprofile),3,i) = sprofile;
-        
     end
 end
 AngX(:,:,find(prod(prod((isnan(AngX(:,:,:)))))==1)) = [];
 
-
+% binned data
 AngX_bin = cell(length(bw)-1, 3);
 for i = 1:length(bw)-1
     AngX_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-    [AngX_bin{i,2}, AngX_bin{i,3}, AngX_bin{i,4}, AngX_bin{i,5}] = vecBin2(AngX(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'Nematic Angle');
+    [AngX_bin{i,2}, AngX_bin{i,3}, AngX_bin{i,4}, AngX_bin{i,5}] = ...
+        vecBin2(AngX(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'Nematic Angle');
 end
 
-% figures
-% switch fig
-%     case 'on'
-        
-%         figure(21); clf;
-%         for i = 1:size(AngX_bin,1)
-%             subplot(4,4,i); hold on;
-%             profile = AngX_bin{i,3};
-%             if isempty(profile)==1
-%                 continue
-%             end
-%             plot(profile(:,1),profile(:,2),'ko');
-%             xbin = AngX_bin{i,4}(:,1); ybin = AngX_bin{i,4}(:,2); sbin = AngX_bin{i,4}(:,3);
-%             plot(xbin,ybin,'rs-','MarkerSize',10);
-%             title(AngX_bin{i,1}); xlabel('position in stripes'); ylabel('cellular angle');
-%         end
-%         
-%         figure(22); clf;
-%         cmap = colormap(cool(size(AngX_bin,1)));
-%         for i = 1:size(AngX_bin,1)
-%             if isempty(AngX_bin{i,5})==1
-%                 continue
-%             end
-%             
-%             subplot(1,2,1); hold on;
-%              xbin = AngX_bin{i,4}(:,1); ybin = AngX_bin{i,4}(:,2); sbin = AngX_bin{i,4}(:,3);
-%             plot(xbin,ybin,'o-','Color',cmap(i,:));
-%             title(AngX_bin{i,1}); xlabel('position in stripes'); ylabel('cellular angle');
-%              axis([-600 600 -10 100]); axis square;
-%             
-%             subplot(1,2,2); hold on;
-%             xbin = AngX_bin{i,5}(:,1); ybin = AngX_bin{i,5}(:,2);
-%             plot(xbin,ybin,'o-','Color',cmap(i,:));
-%             title('normalized profiles'); xlabel('X/w'); ylabel('cellular angle');
-%             axis([-0.6 0.6 -10 100]); axis square;
-%         end
-%         
-% %         figure(21); savefig([pathname,'\analysis\figures\',exp_name,'_angle_profile_all_points.fig']);
-% %         figure(22); savefig([pathname,'\analysis\figures\',exp_name,'_angle_profile_normalized.fig']);
-%         
-%     otherwise
-%         0;
-% end
-
-%% 3. edges and coherence length
+%% 4. edges and coherence length
 
 AngXe = NaN*ones(100,6,length(d));
 for i = 1:length(d)
@@ -362,6 +319,7 @@ end
 % end
 
 %% FIGURES
+% /!\ TO CORRECT
 
 switch fig
     case 'on'
@@ -486,9 +444,6 @@ end
 
 
 %% SAVING
-
-% Angle_width.points = Angw;
-% Angle_width.bin = Angw_bin;
 
 Angle_width = struct(...
     'points', Angw, ...
