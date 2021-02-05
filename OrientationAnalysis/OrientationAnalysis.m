@@ -8,8 +8,9 @@
 %   * 0. parameters setting
 %   * 1. general orientation analysis for each FOV (histograms, over time,
 %   averaged, ...)
-%   * 2. aaa
-%   * 3. aaa
+%   * 2. cell orientation vs. stripe width
+%   * 3. profiles of orientation
+%   * 4. coherence length
 
 %% 0. set parameters of experiment
 
@@ -130,8 +131,9 @@ for i = 1:length(bw)-1
         vecBin2(AngX(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'Nematic Angle');
 end
 
-%% 4. edges and coherence length
+%% 4. edges profiles and "coherence length"
 
+% load orientation data
 AngXe = NaN*ones(100,6,length(d));
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
@@ -142,181 +144,78 @@ for i = 1:length(d)
         x = data_orient.Grid - ones(1, length(data_orient.Grid));
         AngXe(1:length(x),1,i) = x;
         AngXe(1:length(x),2,i) = x * px2mic;
+        % LEFT edge
         AngXe(1:length(x),3,i) = abs(data_orient.AverageAngle.HtimeAverage.L(:,1));
         AngXe(1:length(x),4,i) = data_orient.AverageAngle.HtimeAverage.L(:,2);
+        %RIGHT edge
         AngXe(1:length(x),5,i) = abs(data_orient.AverageAngle.HtimeAverage.R(:,1));
         AngXe(1:length(x),6,i) = data_orient.AverageAngle.HtimeAverage.R(:,2);
-        
     end
 end
 AngXe(:,:,find(prod(prod(isnan(AngXe(:,:,:)),2))==1)) = [];
 
-AngXe_bin = cell(length(bw)-1, 3);
-for i = 1:length(bw)-1
-    AngXe_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-    
-    AngEdgeL = AngXe(:,[2,3,4],:);
-    [AngXe_bin{i,2}, AngXe_bin{i,3}, AngXe_bin{i,4}] = vecBin2(AngEdgeL(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'angle');
-    
-    AngEdgeR = AngXe(:,[2,5,6],:);
-    [AngXe_bin{i,5}, AngXe_bin{i,6}, AngXe_bin{i,7}] = vecBin2(AngEdgeR(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'angle');
-    
-end
-%%
-
-% ft = fittype('a+b*exp(-(x-x0)/l)','coefficients',{'a','b','x0','l'});
+% model: sigmoid
 ft = fittype('b+(t-b)./(1+(l./x).^H)','coefficients',{'b','t','l','H'});
-lambda = NaN*ones(size(AngXe,3),5);
-% for i=1:size(AngXe,3)
-    for i = 18
+lambda = NaN*ones(size(AX,3),5);
+for i=1:size(AngXe,3)
     clc; disp([num2str(i),'/',num2str(size(AngXe,3))]);
     
-    lambda(i,1) = 2*max(AngXe(:,2,i));
+    lambda(i,1) = 2*max(AngXe(:,2,i)); % FOV width
     lambda(i,4) = lambda(i,1);
     lim = length(find(isnan(AngXe(:,2,i))==0));
-    
-    xfitL = AngXe(1:lim,2,i);
-    yfitL = AngXe(1:lim,3,i);
-    %     Start = [yfitL(end),yfitL(1),randn,randn];
     Start = [yfitL(end),yfitL(1),randn,-1];
-    %     [lambda(i,2) , lambda(i,3)]  = fitCoherenceLength(xfit, yfit, 'off');
+    Lower = [-Inf,-Inf,0,-Inf];
+    Upper = [Inf,Inf,Inf,-1];
     
-    try
-        [f gof] = fit(xfitL, yfitL, ft,'StartPoint',Start,'Lower',[-Inf,-Inf,0,-Inf],'Upper',[Inf,Inf,Inf,-1]);
-        lambda(i,2) = f.l;
-        lambda(i,3) = gof.rsquare;
-        
-        figure(50); clf; hold on;
-        xxL = xfitL;
-        %         yyL = f.a+f.b*exp(-(xxL-f.x0)/f.l);
-        yyL = f.b+((f.t-f.b)./(1+(f.l./xxL).^f.H));
-        plot(xxL,yfitL,'ko');
-        plot(xxL,yyL,'r-');
-                title(['l = ',num2str(f.l),', r2 = ',num2str(gof.rsquare)]);
-        
-    catch
-        lambda(i,2) =NaN;
-        lambda(i,3) = NaN;
-    end
+    %LEFT edge
+        xfitL = AngXe(1:lim,2,i); yfitL = AngXe(1:lim,3,i);
+        [lambda(i,2) lambda(i,3)] = fitLength('sigmoid', xfitL, yfitL, Start, Lower, Upper);
     
-    
-    xfitR = AngXe(1:lim,2,i);
-    yfitR = AngXe(1:lim,5,i);
-    %     %     [lambda(i,4) , lambda(i,5)] = fitCoherenceLength(xfit, yfit, 'off');
-    Start = [yfitR(end),yfitR(1),randn,-1];
-    try
-        [f gof] = fit(xfitR, yfitR, ft,'StartPoint',Start,'Lower',[-Inf,-Inf,0,-Inf],'Upper',[Inf,Inf,Inf,-1]);
-        lambda(i,5) = f.l;
-        lambda(i,6) = gof.rsquare;
-        
-        figure(50);
-        xxR = xfitR;
-        %         yyR = f.a+f.b*exp(-(xxR-f.x0)/f.l);
-        yyR = f.b+((f.t-f.b)./(1+(f.l./xxR).^f.H));
-        plot(xxR,yfitR,'ks');
-        plot(xxR,yyR,'b-');
-        
-    catch
-        lambda(i,5) = NaN;
-        lambda(i,6) = NaN;
-    end
-    
+    %RIGHT edge
+        xfitR = AngXe(1:lim,2,i); yfitR = AngXe(1:lim,5,i);
+        [lambda(i,5) lambda(i,6)] = fitLength('sigmoid', xfitR, yfitR, Start, Lower, Upper);
 end
 lambda = sortrows(lambda,1);
 
+% reshape lamba to merge both edges in a single vector
 lambda_2 = reshape(lambda(:,[1,4,2,5,3,6]),[],3);
 lambda_2 = sortrows(lambda_2,1);
 lambda_2(find(isnan(lambda_2(:,2))==1),:) = [];
-lambda_2(find(lambda_2(:,3)<0.9),:)=[];
-lambda_2(find(lambda_2(:,3)>0.99999),:)=[];
+lambda_2(find(lambda_2(:,3)<0.9 && lambda_2(:,3)>0.99999),:) = [];
 
-%%
+% binned data
+AngXe_bin = cell(length(bw)-1, 3);
 lambda_bin = NaN*ones(size(AngXe_bin,1),5);
 for i = 1:size(AngXe_bin,1)
     clc;
+    AngXe_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
     
-    if (isempty(AngXe_bin{i,2}))==1
-        continue
-    else
-        if (size(AngXe_bin{i,3}(:,1),1)<4)==1
+    % LEFT edge
+        AngEdgeL = AngXe(:,[2,3,4],:);
+        [AngXe_bin{i,2}, AngXe_bin{i,3}, AngXe_bin{i,4}] = ...
+            vecBin2(AngEdgeL(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'angle');
+        try
+            lambda_bin(i,1) = 2*max(AngXe_bin{i,2}(:,1)); % for width
+            lim = length(AngXe_bin{i,3}(:,1));
+            xfitL = AngXe_bin{i,3}(2:lim,1); yfitL = AngXe_bin{i,3}(2:lim,2);
+            [lambda_bin(i,2) lambda_bin(i,3)] = fitLength('sigmoid', xfitL, yfitL);
+        catch
             continue
         end
-    end
     
-    lambda_bin(i,1) = 2*max(AngXe_bin{i,2}(:,1));
-    lim = length(AngXe_bin{i,3}(:,1));
-    xfit = AngXe_bin{i,3}(2:lim,1); yfit = AngXe_bin{i,3}(2:lim,2);
-    [lambda_bin(i,2) , lambda_bin(i,3)]  = fitCoherenceLength(xfit, yfit, 'off');
-    xfit = AngXe_bin{i,5}(2:lim,1); yfit = AngXe_bin{i,6}(2:lim,2);
-    [lambda_bin(i,4) , lambda_bin(i,5)]  = fitCoherenceLength(xfit, yfit, 'off');
-    
+    % RIGHT edge
+        AngEdgeR = AngXe(:,[2,5,6],:);
+        [AngXe_bin{i,5}, AngXe_bin{i,6}, AngXe_bin{i,7}] = ...
+            vecBin2(AngEdgeR(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'angle');
+        try
+            lambda_bin(i,1) = 2*max(AngXe_bin{i,4}(:,1)); % for width
+            lim = length(AngXe_bin{i,5}(:,1));
+            xfitR = AngXe_bin{i,5}(2:lim,1); yfitR = AngXe_bin{i,6}(2:lim,2);
+            [lambda_bin(i,4) lambda_bin(i,5)] = fitLength('sigmoid', xfitR, yfitR);
+        catch
+            continue
+        end
 end
-
-% figures
-% switch fig
-%     case 'on'
-%         
-%         figure(31); clf;
-%         cmap = colormap(cool(max(max(AngXe(:,1,:)))));
-%         for i=1:size(AngXe,3)
-%             subplot(2,2,1); hold on;
-%             plot(AngXe(:,2,i),AngXe(:,3,i),'-','Color',cmap(max(AngXe(:,1,i)),:));
-%             title('left edge');
-%             subplot(2,2,3); hold on;
-%             plot(AngXe(:,1,i)./(2*max(AngXe(:,1,i))),AngXe(:,3,i),'-','Color',cmap(max(AngXe(:,1,i)),:));
-%             title('left edge (normaized width)');
-%             subplot(2,2,2); hold on;
-%             plot(AngXe(:,2,i),AngXe(:,5,i),'-','Color',cmap(max(AngXe(:,1,i)),:));
-%             title('right edge');
-%             subplot(2,2,4); hold on;
-%             plot(AngXe(:,1,i)./(2*max(AngXe(:,1,i))),AngXe(:,5,i),'-','Color',cmap(max(AngXe(:,1,i)),:));
-%             title('right edge (normalized width)');
-%             
-%         end
-%         
-%         figure(32); clf;
-%         cmap = colormap(cool(size(AngXe_bin,1)));
-%         subplot(2,1,1);  hold on;
-%         for i = 1:size(AngXe_bin,1)
-%             if isempty(AngXe_bin{i,3})==1
-%                 continue
-%             end
-%             xbinL = AngXe_bin{i,3}(:,1); ybinL = AngXe_bin{i,3}(:,2);
-%             xbinR = AngXe_bin{i,6}(:,1); ybinR = AngXe_bin{i,6}(:,2);
-%             plot(xbinL,ybinL,'o-','Color',cmap(i,:));
-%             plot(xbinR,ybinR,'s-','Color',cmap(i,:));
-%             title('edge profiles'); xlabel('X'); ylabel('cellular angle');
-%         end
-%         subplot(2,1,2);  hold on;
-%         for i = 1:size(AngXe_bin,1)
-%             if isempty(AngXe_bin{i,4})==1
-%                 continue
-%             end
-%             xbinL = AngXe_bin{i,4}(:,1); ybinL = AngXe_bin{i,4}(:,2);
-%             xbinR = AngXe_bin{i,7}(:,1); ybinR = AngXe_bin{i,7}(:,2);
-%             plot(xbinL,ybinL,'o-','Color',cmap(i,:));
-%             plot(xbinR,ybinR,'s-','Color',cmap(i,:));
-%             title('normalized edge profiles'); xlabel('X/w'); ylabel('cellular angle');
-%             axis([0 0.5 -10 100]);
-%         end
-%         
-%         figure(33); clf; hold on;
-% %         subplot(1,2,1); hold on;
-%         plot(lambda(:,1),lambda(:,2),'ko'); plot(lambda(:,1),lambda(:,4),'ks');
-%         title('all points'), xlabel('stripe width (um)'); ylabel('\lambda_{\theta}');
-% %         subplot(1,2,2); hold on;
-%         plot(lambda_bin(:,1),lambda_bin(:,2),'ro-'); plot(lambda_bin(:,1),lambda_bin(:,4),'rs-');
-% %         title('on binned profiles'), xlabel('stripe width (um)'); ylabel('\lambda_{\theta}');
-%         legend('left edge', 'right edge');
-%         
-%         figure(31); savefig([pathname,'\analysis\figures\',exp_name,'_edge_profile_all_points.fig']);
-%         figure(32); savefig([pathname,'\analysis\figures\',exp_name,'_edge_profile_binned.fig']);
-%         figure(33); savefig([pathname,'\analysis\figures\',exp_name,'_coherence_length.fig']);
-%         
-%     otherwise
-%         0;
-%         
-% end
 
 %% FIGURES
 % /!\ TO CORRECT
@@ -435,9 +334,6 @@ switch fig
         figure(31); savefig([pathname,'\analysis\figures\',exp_name,'_edge_profile_all_points.fig']);
         figure(32); savefig([pathname,'\analysis\figures\',exp_name,'_edge_profile_binned.fig']);
         figure(33); savefig([pathname,'\analysis\figures\',exp_name,'_coherence_length.fig']);
-        
-
-        
     otherwise
         0;
 end
