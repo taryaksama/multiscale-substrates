@@ -46,6 +46,11 @@ if floor(w/dw) < 4
     dw = ceil(dw/2);
 end
 
+% change in radians if in degrees
+if max(max(Ang)) > 2 && min(min(Ang)) < -2
+    Ang = Ang * pi/180;
+end
+
 a = dw*(1-r); % step between overlapping windows
 grid = [1:a:ceil(w/2),ceil(w/2)]; % X-axis grid
 angbin = -pi/2:pi/180:pi/2;
