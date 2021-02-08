@@ -42,7 +42,7 @@ r = 0.5; % overlap of ROIs
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
     if d(i).isdir==0
-        AngleROI(pathname, d(i).name, dw, r, 'off');
+        angleROI(pathname, d(i).name, dw, r, 'off');
     end
 end
 

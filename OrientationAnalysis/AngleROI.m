@@ -24,7 +24,7 @@
 %   * 3. profiles
 %   * SAVING and FIGURES
 
-function data_orient = AngleROI(pathname, filename, dw, r, fig)
+function data_orient = angleROI(pathname, filename, dw, r, fig)
 
 %% 1. angle maps
 
@@ -63,14 +63,14 @@ for xk=1:length(grid)
     for t=1:Nn
         % from LEFT to RIGHT
         AngL = imread([pathname,'\orient\',filename],t); 
-        wAngL = StripeY_ROI(AngL, n, dw);
+        wAngL = stripeY_ROI(AngL, n, dw);
         [hCountsL, ~] = histcounts(wAngL,angbin);
         Ang_CountsL(:,xk,t) = hCountsL;
         [angletL(1,xk,t), angletL(2,xk,t)] = NematicMeanAngle(wAngL(:));
         
         % from RIGHT to LEFT + /!\ doubt on chirality inversion
         AngR = flip(imread([pathname,'\orient\',filename],t),2);
-        wAngR = StripeY_ROI(AngR, n, dw);
+        wAngR = stripeY_ROI(AngR, n, dw);
         [hCountsR, ~] = histcounts(wAngR,angbin);
         Ang_CountsR(:,xk,t) = hCountsR;
         [angletR(1,xk,t), angletR(2,xk,t)] = NematicMeanAngle(wAngR(:));

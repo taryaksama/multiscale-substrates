@@ -11,7 +11,7 @@
 % OUTPUT:
 %   * wAng: cell orientation in cutted boxed
 
-function wAng = StripeY_ROI(Ang, n, dw)
+function wAng = stripeY_ROI(Ang, n, dw)
 
 % change in radians if in degrees
 if max(max(Ang)) > 2 && min(min(Ang)) < -2
