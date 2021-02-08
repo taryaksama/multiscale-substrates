@@ -50,101 +50,71 @@ end
 
 %% 2. convergent flows
 
-% profile
+% profiles
 Xu = NaN*ones(100,3,length(d));
 unorm = NaN*ones(length(d),2);
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
-    if d(i).isdir==0
+    if d(i).isdir==1
+        continue
+    end
+    
+    try
+        load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
+        px2mic = setpx2mic(d(i).name,'PIV');
         
-        try
-            load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
-            
-            px2mic = setpx2mic(d(i).name,'PIV');
-            x = (data_piv.Grid - data_piv.Width/2) * px2mic;
-            Xu(1:length(x),1,i) = x;
-            Xu(1:length(x),2:3,i) = data_piv.Profile.u'  * px2mic;
-            
-            unorm(i,1) = data_piv.Width * px2mic;
-            unorm(i,2) = data_piv.Norm2.XYT.u2 * px2mic^2;
-            
-        catch
-            continue
-        end
+        % profiles
+        x = (data_piv.Grid - data_piv.Width/2) * px2mic;
+        Xu(1:length(x),1,i) = x;
+        Xu(1:length(x),2:3,i) = data_piv.Profile.u'  * px2mic;
+        
+        % norm
+        unorm(i,1) = data_piv.Width * px2mic;
+        unorm(i,2) = data_piv.Norm2.XYT.u2 * px2mic^2;
+    catch
+        continue
     end
 end
 Xu(:,:,find(prod(prod(isnan(Xu(:,:,:)),2))==1)) = [];
 unorm(find(prod(isnan(unorm(:,:)),2)==1),:) = [];
 
+% binned profiles
 for i = 1:length(bw)-1
     Xu_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-    [Xu_bin{i,2}, Xu_bin{i,3}, Xu_bin{i,4}, Xu_bin{i,5}] = vecBin2(Xu, [bw(i) , bw(i+1)], bx_sz, ep, 'achiral', 'XY');
-    [Xu_bin{i,6}(:,1), Xu_bin{i,6}(:,2), Xu_bin{i,6}(:,3)] = vecBin1(unorm, [bw(i) bw(i+1)], ep, 'XY');
+    [Xu_bin{i,2}, Xu_bin{i,3}, Xu_bin{i,4}, Xu_bin{i,5}] = ...
+        vecBin2(Xu, [bw(i) , bw(i+1)], bx_sz, ep, 'achiral', 'XY'); %profiles
+    [Xu_bin{i,6}(:,1), Xu_bin{i,6}(:,2), Xu_bin{i,6}(:,3)] = ...
+        vecBin1(unorm, [bw(i) bw(i+1)], ep, 'XY'); %norm
 end
 
-%profil length
+% division rate
 lambda_u = NaN*ones(size(Xu,3),3);
 for i = 1:size(Xu,3)
-% for i=10
+    % for i=10
     clc; disp([num2str(i),'/',num2str(size(Xu,3))]);
     clf;
     
     lambda_u(i,1) = 2*max(Xu(:,1,i));
     lambda_u(i,4) = lambda_u(i,1);
-    x = Xu(find(isnan(Xu(:,2,i))==0),1,i);
-    y = Xu(find(isnan(Xu(:,2,i))==0),2,i);
+    x = Xu(find(isnan(Xu(:,2,i))==0),1,i); y = Xu(find(isnan(Xu(:,2,i))==0),2,i);
     mid = ceil(length(x)/2);
     lim = ceil(length(x)/4);
+    Lower = [[], []];
+    Upper = [[], []];
     
-        ft = fittype('a*x+b','coefficients',{'a','b'});
+    %LEFT edge
+    xfitL = x(lim:mid-1); yfitL = y(lim:mid-1);
+    Start = [(yfitL(end)-yfitL(1))/(xfitL(end)-xfitL(1)), 0];
+    [lambda_u(i,2) lambda_u(i,3)] = fitLength('linear', xfitL, yfitL, Start, Lower, Upper);
     
-        %left side
-    xfitL = x(lim:mid-1);
-    yfitL = y(lim:mid-1);     
-    try
-        [fL gofL] = fit(xfitL, yfitL, ft,'StartPoint',[(yfitL(end)-yfitL(1))/(xfitL(end)-xfitL(1)), 0]);    
-        lambda_u(i,2) = -fL.a;
-        lambda_u(i,3) = gofL.rsquare;
-    catch
-        lambda_u(i,2) = NaN;
-        lambda_u(i,3) = NaN;
-    end
-    
-    %right side
-        xfitR = x(mid+1:end-lim+1);
-    yfitR = y(mid+1:end-lim+1);     
-    try
-        [fR gofR] = fit(xfitR, yfitR, ft,'StartPoint',[(yfitR(end)-yfitR(1))/(xfitR(end)-xfitR(1)), 0]);    
-        lambda_u(i,5) = -fR.a;
-        lambda_u(i,6) = gofR.rsquare;
-    catch
-        lambda_u(i,5) = NaN;
-        lambda_u(i,6) = NaN;
-    end
-    
-    switch fig
-        case 'on'
-            hold on;
-            plot(x, y, 'ko');
-            xxL = xfitL;
-            yyL = fL.a*xfitL + fL.b;
-            plot(xxL, yyL, 'r-');
-            xxR = xfitR;
-            yyR = fR.a*xfitR + fR.b;
-            plot(xxR, yyR, 'r-');
-            
-        otherwise
-            continue
-    end
-    
+    %RIGHT edge
+    xfitR = x(mid+1:end-lim+1); yfitR = y(mid+1:end-lim+1);
+    Start = [(yfitR(end)-yfitR(1))/(xfitR(end)-xfitR(1)), 0];
+    [lambda_u(i,2) lambda_u(i,3)] = fitLength('linear', xfitL, yfitL, Start, Lower, Upper);
 end
-
-% lambda_u(find(isnan(lambda_u(:,2))==1),:) = [];
-% lambda_u = sortrows(lambda_u,1);
-% lambda_u(find(lambda_u(:,3)<0.7),:)=[];
-
 lambda_u = sortrows(lambda_u,1);
 
+reshape lamba to merge both edges in a single vector
 lambda_u2 = reshape(lambda_u(:,[1,4,2,5,3,6]),[],3);
 lambda_u2 = sortrows(lambda_u2,1);
 lambda_u2(find(isnan(lambda_u2(:,2))==1),:) = [];

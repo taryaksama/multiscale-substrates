@@ -3,8 +3,8 @@
 %
 % INPUT:
 %   * model: model of the fit
+%       * 'linear': linear function
 %       * 'sigmoid': sigmoid function
-%       * TO COMPELTE
 %   * xfit: X-values to fit
 %   * yfit: Y-values to fit
 %   * varargin: other variables
@@ -15,6 +15,8 @@
 function varargout = fitLength(model, xfit, yfit, varargin)
 
 switch model
+    case 'linear'
+        ft = fittype('a1+x*L','coefficients',{'L','a1'}); %/!\ TO TEST
     case 'sigmoid'
         ft = fittype('a1+(a2-a1)./(1+(L./x).^a3)','coefficients',{'L','a1','a2','a3'});
     otherwise
@@ -40,6 +42,8 @@ end
 varargout{1} = L;
 varargout{2} = r2;
 
+fig = 'off';
+fig = varargin{4} ;
 switch fig
     case 'on'
         xx = xfit;
