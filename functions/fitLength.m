@@ -3,8 +3,9 @@
 %
 % INPUT:
 %   * model: model of the fit
+%       * 'linear': linear function
+%       * 'exponential': decaying exponential function
 %       * 'sigmoid': sigmoid function
-%       * TO COMPELTE
 %   * xfit: X-values to fit
 %   * yfit: Y-values to fit
 %   * varargin: other variables
@@ -15,14 +16,19 @@
 function varargout = fitLength(model, xfit, yfit, varargin)
 
 switch model
+    case 'linear'
+        ft = fittype('a1+x*L','coefficients',{'L','a1'}); %/!\ TO TEST
+    case 'exponential'
+        ft = fittype('a1*exp(-(x-a2)/L)','coefficients',{'L','a1','a2'});
     case 'sigmoid'
         ft = fittype('a1+(a2-a1)./(1+(L./x).^a3)','coefficients',{'L','a1','a2','a3'});
     otherwise
-        ft_model = input('enter a model: \n');
-        % n_coeff + adapt coefficients a1, a2, ...
-        ft = fittype(ft_model);
+        disp('model not taken in account');
+        return
 end
 
+Start = []; Lower = []; Upper = [];
+% /!\ ADD ERROR IF NO VARARGIN ARE ENTERED
 Start = varargin{1}; % starting point
 Lower = varargin{2}; % lower boundaries
 Upper = varargin{3}; % upper boundaries
@@ -40,6 +46,8 @@ end
 varargout{1} = L;
 varargout{2} = r2;
 
+fig = 'off';
+fig = varargin{4} ;
 switch fig
     case 'on'
         xx = xfit;
