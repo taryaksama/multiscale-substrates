@@ -15,7 +15,7 @@ clear all
 clc
 
 addpath('\functions');
-fig = 'on'; % display figures
+fig = 'off'; % display figures
 exp_name = input('Experiment name ? \n','s'); % enter experiment name
 
 % binning parameters (width range)
@@ -77,7 +77,6 @@ for k = 1:size(d_im,1)
     % Materials, 2015)
     dc_x = d.Centroid(:,1);
     dc_y = d.Centroid(:,2);
-    
     defect(k).Position = [dc_x , dc_y];
     
     %create mask to retreive orientation
@@ -96,9 +95,9 @@ for k = 1:size(d_im,1)
     blank = zeros(size(ang)+[2*rc, 2*rc]);
     dAng = zeros(length(dc_x),nslice);
     for ik = 1:length(dc_x)
-        
         disp(['get charge and orientation of defect (',num2str(ik),'/',num2str(length(dc_x)),')']);
         
+        %fill mask with angular data
         for is = 1:nslice
             blank = zeros(size(blank));
             blank(round(dc_y(ik)):round(dc_y(ik))+2*rc,...
@@ -149,13 +148,8 @@ for k = 1:size(d_im,1)
                 d_direction = alphaq(find([abs(alphaq-theta)]==min(abs(alphaq-theta))));
         end
         
-        
         defect(k).Charge(ik,1) = d_charge;
-        %         if d_direction>pi/2 || d_direction<-pi/2
-        %             d_direction = d_direction - pi;
-        %         end
         defect(k).Orientation(ik,1) = d_direction * 180/pi;
-        
     end
     
     switch fig
@@ -227,6 +221,7 @@ for k = 1:size(d_im,1)
     
 end
 
+% remove empty rows
 toremove = [];
 for k = 1:size(defect,2)
     if isempty(defect(k).Exp)==1
