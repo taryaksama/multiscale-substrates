@@ -230,7 +230,7 @@ for k = 1:size(defect,2)
 end
 defect(toremove) = [];
 
-%% raw data
+%% defect configurations
 
 %C1 = width / C2 = X position / C3 = charge / C4 = orientation
 data_defect = [];
@@ -245,158 +245,86 @@ for k = 1:size(defect,2)
     end
     data_temp = [defect(k).Dimension(2)*px2mic*ones(size(defect(k).Charge,1),1) , defect(k).Position(:,1)*px2mic , defect(k).Charge , defect(k).Orientation];
     data_defect = [data_defect ; data_temp];
-    
-    
 end
 data_defect = sortrows(data_defect,1);
 
 %separate +1/2 and -1/2 defects
 data_defect_p = data_defect(find(data_defect(:,3)==0.5),:);
 data_defect_n = data_defect(find(data_defect(:,3)==-0.5),:);
-%%
-% for i = 1:length(bw)-1
-for i =6
-    
-    %
-    clearvars A
-    A = [data_defect(:,1), data_defect(:,2)-data_defect(:,1)./2];
-    Aw = A(find((A(:,1)>=bw(i)+ep).*(A(:,1)<bw(i+1)+ep)),:);
-    [c,edge] = histcounts(Aw(:,2),-280:20:280);
-    edge2 = 0.5*[edge(1:end-1)+edge(2:end)]';
-    c2 = [c./sum(c(:))]';
-    
-    %     % total number of defects
-    %     clearvars A
-    %     A = data_defect(:,1);
-    %     Aw = A(find((A(:,1)>=bw(i)+ep).*(A(:,1)<bw(i+1)+ep)),:);
-    %     Nd(i,1) = length(Aw);
-    %
-    %     %+1/2
-    %     clearvars A
-    %     A = [data_defect_p(:,1) , data_defect_p(:,1)/2-abs(data_defect_p(:,2)-data_defect_p(:,1)/2), data_defect_p(:,4)*pi/180];
-    %     Aw = A(find((A(:,1)>=bw(i)+ep).*(A(:,1)<bw(i+1)+ep)),:);
-    %     Nd_p(i,1) = length(Aw);
-    %     [Xp(i,1), Xp(i,2), Xp(i,3), Xp(i,4)] = vecBin1(A(:,[1 2]), [bw(i) bw(i+1)], ep, 'XY');
-    %     [Angp(i,1), Angp(i,2), Angp(i,3), Angp(i,4)] = vecBin1(A(:,[1 3]), [bw(i) bw(i+1)], ep, 'Polar Angle');
-    %
-    %     %-1/2
-    %     clearvars A
-    %     A = [data_defect_n(:,1) , data_defect_n(:,1)/2-abs(data_defect_n(:,2)-data_defect_n(:,1)/2), data_defect_n(:,4)*pi/180];
-    %     Aw = A(find((A(:,1)>=bw(i)+ep).*(A(:,1)<bw(i+1)+ep)),:);
-    %     Nd_n(i,1) = length(Aw);
-    %     [Xn(i,1), Xn(i,2), Xn(i,3), Xn(i,4)] = vecBin1(A(:,[1 2]), [bw(i) bw(i+1)], ep, 'XY');
-    %     [Angn(i,1), Angn(i,2), Angn(i,3), Angn(i,4)] = vecBin1(A(:,[1 3]), [bw(i) bw(i+1)], ep, 'Polar Angle');
-    
-end
 
-%%
+% alternating defects in Y-axis ?
+    % gather data
+    aY = [];
+    kk = 1;
+    for i = 1:size(defect,2)
+        l = size(defect(i).Position,1);
 
-nnn = data_defect_n(find(data_defect_n(:,4)~=0),[1 4]);
-ppp = data_defect_p(find(data_defect_p(:,4)~=0),[1 4]);
+        if l==0
+            kk = kk+1;
+            continue
+        end
 
-%% configurations
+        %get defects in Y-axis
+        aY_FOV = [...
+            kk * ones(l,1), ... %FOV
+            defect(i).Position(:,1), ...    %X position
+            (defect(i).Position(:,1) - defect(i).Dimension(2)/2)./defect(i).Dimension(2), ... %X position normalized by width
+            defect(i).Position(:,2), ... %Y position
+            defect(i).Charge]; %charge
+        aY = [aY; aY_FOV];
 
-dconfig =  defect(find(nFOV(:,2)==2 & nFOV(:,3)==2));
-
-clearvars D
-kk = 1;
-for k = 1:size(dconfig,2)
-    %     for k = 1
-    
-    
-    
-    px2mic = setpx2mic(defect(k).Exp,'orientation');
-    D(kk:kk+3,[2 1]) = dconfig(k).Dimension .* ones(4,1) * px2mic; %stripe heigth and length
-    D(kk:kk+3,3:4) = dconfig(k).Position * px2mic; %defect position in Y and X
-    D(kk:kk+3,5:6) = (dconfig(k).Position - [dconfig(k).Dimension(2)./2 , mean(dconfig(k).Position(:,2))].*ones(4,1)) * px2mic; %defect position in Y and X versus mean position
-    D(kk:kk+3,7) = dconfig(k).Charge .* ones(4,1);
-    
-    kk = kk+4;
-end
-%%
-kk = 101;
-figure(50); clf; hold on;
-% for k = 1:size(D,1)./4
-for k = 1
-    
-    figure(50);
-    scatter(D(kk:kk+3,5)./D(kk:kk+3,1),D(kk:kk+3,6),10,'k','filled');
-    
-    aaa = [D(kk:kk+3,5)./D(kk:kk+3,1),D(kk:kk+3,6),D(kk:kk+3,7)];
-    
-    
-    kk = kk+4;
-end
-
-%% alternance en Y ?
-
-% gather data
-aY = [];
-kk = 1;
-for i = 1:size(defect,2)
-    l = size(defect(i).Position,1);
-    
-    if l==0
         kk = kk+1;
-        continue
     end
-    
-    aY_FOV = [...
-        kk * ones(l,1), ... %FOV
-        defect(i).Position(:,1), ...    %X position
-        (defect(i).Position(:,1) - defect(i).Dimension(2)/2)./defect(i).Dimension(2), ... %X position normalized by width
-        defect(i).Position(:,2), ... %Y position
-        defect(i).Charge]; %charge
-    
-    aY = [aY; aY_FOV];
-    
-    kk = kk+1;
-end
-%%
-%
-dY = [];
-Nn = max(aY(:,1));
-c_pair = 0; c_nopair = 0;
-for n = 1:Nn
-    
-    Yd_left = NaN*ones(1,2); Yd_right = Yd_left;
-    
-    aY_N = aY(find(aY(:,1)==n),2:5);
-    if size(aY_N,1)<2
-        continue
+
+    % distance (in Y-axis) between defects
+    dY = [];
+    Nn = max(aY(:,1));
+    c_pair = 0; c_nopair = 0;
+    for n = 1:Nn
+        Yd_left = NaN*ones(1,2); Yd_right = Yd_left;
+
+        aY_N = aY(find(aY(:,1)==n),2:5);
+        if size(aY_N,1)<2
+            continue
+        end
+        
+        %LEFT edge
+        aY_N_left = aY_N(find(aY_N(:,2)<0),[1 3 4]);
+        aY_N_left = sortrows(aY_N_left,2);
+        if size(aY_N_left,1)>=2
+            Yd_left = diff(aY_N_left);
+            c_pair = c_pair + sum(Yd_left(:,3) ~= 0);
+            c_nopair = c_nopair + sum(Yd_left(:,3) == 0);
+            Yd_left(find(Yd_left(:,3)==0),:) = [];
+        end
+
+        %RIGHT edge
+        aY_N_right = aY_N(find(aY_N(:,2)>0),[1 3 4]);
+        aY_N_right = sortrows(aY_N_right,2);
+        if size(aY_N_right,1)>=2
+            Yd_right = diff(aY_N_right);
+            c_pair = c_pair + sum(Yd_right(:,3) ~= 0);
+            c_nopair = c_nopair + sum(Yd_right(:,3) == 0);
+            Yd_right(find(Yd_right(:,3)==0),:) = [];
+        end
+
+        dY = [dY ; [Yd_left(:,2) ; Yd_right(:,2)] * px2mic];
     end
-    
-    aY_N_left = aY_N(find(aY_N(:,2)<0),[1 3 4]);
-    aY_N_left = sortrows(aY_N_left,2);
-    if size(aY_N_left,1)>=2
-        Yd_left = diff(aY_N_left);
-        
-        c_pair = c_pair + sum(Yd_left(:,3) ~= 0);
-        c_nopair = c_nopair + sum(Yd_left(:,3) == 0);
-        
-        Yd_left(find(Yd_left(:,3)==0),:) = [];
+    dY(find(isnan(dY)==1)) = [];
+
+% 4 defects configuration (2x -1/2 & 2x +1/2)
+    dconfig =  defect(find(nFOV(:,2)==2 & nFOV(:,3)==2));
+    clearvars D
+    kk = 1;
+    for k = 1:size(dconfig,2)
+        px2mic = setpx2mic(defect(k).Exp,'orientation');
+        D(kk:kk+3,[2 1]) = dconfig(k).Dimension .* ones(4,1) * px2mic; %stripe heigth and length
+        D(kk:kk+3,3:4) = dconfig(k).Position * px2mic; %defect position in Y and X
+        D(kk:kk+3,5:6) = ...
+            (dconfig(k).Position - ...
+            [dconfig(k).Dimension(2)./2 , mean(dconfig(k).Position(:,2))].*ones(4,1)) ...
+            * px2mic; %defect position in Y and X versus mean position
+        D(kk:kk+3,7) = dconfig(k).Charge .* ones(4,1);
+
+        kk = kk+4;
     end
-    
-    aY_N_right = aY_N(find(aY_N(:,2)>0),[1 3 4]);
-    aY_N_right = sortrows(aY_N_right,2);
-    if size(aY_N_right,1)>=2
-        Yd_right = diff(aY_N_right);
-        
-        c_pair = c_pair + sum(Yd_right(:,3) ~= 0);
-        c_nopair = c_nopair + sum(Yd_right(:,3) == 0);
-        
-        Yd_right(find(Yd_right(:,3)==0),:) = [];
-    end
-    
-    dY = [dY ; [Yd_left(:,2) ; Yd_right(:,2)] * px2mic];
-    
-end
-
-dY(find(isnan(dY)==1)) = [];
-
-
-
-
-
-
-
