@@ -4,6 +4,7 @@
 % INPUT:
 %   * model: model of the fit
 %       * 'linear': linear function
+%       * 'exponential': decaying exponential function
 %       * 'sigmoid': sigmoid function
 %   * xfit: X-values to fit
 %   * yfit: Y-values to fit
@@ -17,12 +18,13 @@ function varargout = fitLength(model, xfit, yfit, varargin)
 switch model
     case 'linear'
         ft = fittype('a1+x*L','coefficients',{'L','a1'}); %/!\ TO TEST
+    case 'exponential'
+        ft = fittype('a1*exp(-(x-a2)/L)','coefficients',{'L','a1','a2'});
     case 'sigmoid'
         ft = fittype('a1+(a2-a1)./(1+(L./x).^a3)','coefficients',{'L','a1','a2','a3'});
     otherwise
-        ft_model = input('enter a model: \n');
-        % n_coeff + adapt coefficients a1, a2, ...
-        ft = fittype(ft_model);
+        disp('model not taken in account');
+        return
 end
 
 Start = varargin{1}; % starting point

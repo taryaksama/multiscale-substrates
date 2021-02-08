@@ -59,26 +59,25 @@ for i = 1:length(d)
         continue
     end
     
-    try
-        load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
-        px2mic = setpx2mic(d(i).name,'PIV');
-        
-        % profiles
-        x = (data_piv.Grid - data_piv.Width/2) * px2mic;
-        Xu(1:length(x),1,i) = x;
-        Xu(1:length(x),2:3,i) = data_piv.Profile.u'  * px2mic;
-        
-        % norm
-        unorm(i,1) = data_piv.Width * px2mic;
-        unorm(i,2) = data_piv.Norm2.XYT.u2 * px2mic^2;
-    catch
-        continue
-    end
+    load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
+    px2mic = setpx2mic(d(i).name,'PIV');
+    
+    % profiles
+    x = (data_piv.Grid - data_piv.Width/2) * px2mic;
+    Xu(1:length(x),1,i) = x;
+    Xu(1:length(x),2:3,i) = data_piv.Profile.u'  * px2mic;
+    
+    % norm
+    unorm(i,1) = data_piv.Width * px2mic;
+    unorm(i,2) = data_piv.Norm2.XYT.u2 * px2mic^2;
 end
 Xu(:,:,find(prod(prod(isnan(Xu(:,:,:)),2))==1)) = [];
 unorm(find(prod(isnan(unorm(:,:)),2)==1),:) = [];
 
 % binned profiles
+%Xu_bin: C1=binning range / C2=number of concatenated FOV /  C3=all points / 
+%C4=binned profile / C5=binned
+%profile (normalized) / C6=norm2
 for i = 1:length(bw)-1
     Xu_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
     [Xu_bin{i,2}, Xu_bin{i,3}, Xu_bin{i,4}, Xu_bin{i,5}] = ...
@@ -99,8 +98,8 @@ for i = 1:size(Xu,3)
     x = Xu(find(isnan(Xu(:,2,i))==0),1,i); y = Xu(find(isnan(Xu(:,2,i))==0),2,i);
     mid = ceil(length(x)/2);
     lim = ceil(length(x)/4);
-    Lower = [[], []];
-    Upper = [[], []];
+    Lower = [];
+    Upper = [];
     
     %LEFT edge
     xfitL = x(lim:mid-1); yfitL = y(lim:mid-1);
@@ -114,7 +113,7 @@ for i = 1:size(Xu,3)
 end
 lambda_u = sortrows(lambda_u,1);
 
-reshape lamba to merge both edges in a single vector
+% reshape lamba to merge both edges in a single vector
 lambda_u2 = reshape(lambda_u(:,[1,4,2,5,3,6]),[],3);
 lambda_u2 = sortrows(lambda_u2,1);
 lambda_u2(find(isnan(lambda_u2(:,2))==1),:) = [];
@@ -122,104 +121,72 @@ lambda_u2(find(lambda_u2(:,3)<0.7),:)=[];
 
 %% 3. shear flows
 
-% profile
+% profiles
 Xv = NaN*ones(100,3,length(d));
 vnorm = NaN*ones(length(d),3);
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
-    if d(i).isdir==0
-        
-        load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
-        
-        px2mic = setpx2mic(d(i).name,'PIV');
-        x = (data_piv.Grid - data_piv.Width/2) * px2mic;
-        Xv(1:length(x),1,i) = x;
-        Xv(1:length(x),2:3,i) = data_piv.Profile.v'  * px2mic;
-        
-        vnorm(i,1) = data_piv.Width * px2mic;
-        vnorm(i,2) = data_piv.Norm2.XYT.v2 * px2mic^2;
-        vnorm(i,3) = max(abs(data_piv.Profile.v(1,:))) * px2mic;
-        
+    if d(i).isdir==1
+        continue
     end
+    
+    load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
+    px2mic = setpx2mic(d(i).name,'PIV');
+    
+    %profiles
+    x = (data_piv.Grid - data_piv.Width/2) * px2mic;
+    Xv(1:length(x),1,i) = x;
+    Xv(1:length(x),2:3,i) = data_piv.Profile.v'  * px2mic;
+    
+    %norm
+    vnorm(i,1) = data_piv.Width * px2mic;
+    vnorm(i,2) = data_piv.Norm2.XYT.v2 * px2mic^2;
+    vnorm(i,3) = max(abs(data_piv.Profile.v(1,:))) * px2mic;
 end
 Xv(:,:,find(prod(prod(isnan(Xv(:,:,:)),2))==1)) = [];
 vnorm(find(prod(isnan(vnorm(:,:)),2)==1),:) = [];
 
-%Xv_bin: C1=binning range / C2=number of concatenated FOV /  C3=all points / C4=binned profile / C5=binned
-%profile (normalized) / C6=norm2 / C7=max value / C8=friction length
+% binned profiles
+%Xv_bin: C1=binning range / C2=number of concatenated FOV /  C3=all points /
+%C4=binned profile / C5=binned
+%profile (normalized) / C6=norm2 / C7=max value
 for i = 1:length(bw)-1
     Xv_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-    [Xv_bin{i,2}, Xv_bin{i,3}, Xv_bin{i,4}, Xv_bin{i,5}] = vecBin2(Xv, [bw(i) , bw(i+1)], bx_sz, ep, 'chiral', 'XY');
-    [Xv_bin{i,6}(:,1), Xv_bin{i,6}(:,2), Xv_bin{i,6}(:,3)] = vecBin1(vnorm(:,[1 2]), [bw(i) bw(i+1)], ep, 'XY');
-    [Xv_bin{i,7}(:,1), Xv_bin{i,7}(:,2), Xv_bin{i,7}(:,3)] = vecBin1(vnorm(:,[1 3]), [bw(i) bw(i+1)], ep, 'XY');
+    [Xv_bin{i,2}, Xv_bin{i,3}, Xv_bin{i,4}, Xv_bin{i,5}] = ...
+        vecBin2(Xv, [bw(i) , bw(i+1)], bx_sz, ep, 'chiral', 'XY'); %profiles
+    [Xv_bin{i,6}(:,1), Xv_bin{i,6}(:,2), Xv_bin{i,6}(:,3)] = ...
+        vecBin1(vnorm(:,[1 2]), [bw(i) bw(i+1)], ep, 'XY'); %norm
+    [Xv_bin{i,7}(:,1), Xv_bin{i,7}(:,2), Xv_bin{i,7}(:,3)] = ...
+        vecBin1(vnorm(:,[1 3]), [bw(i) bw(i+1)], ep, 'XY'); %max value
 end
 
 %screening length
-ft = fittype('b*exp(-(x-x0)/l)','coefficients',{'b','x0','l'});
-lambda_v = NaN*ones(size(Xv,3),5);
+lambda_v = NaN*ones(size(Xv,3),6);
 for i = 1:size(Xv,3)
     clc; disp([num2str(i),'/',num2str(size(Xv,3))]);
     
     lambda_v(i,1) = 2*max(Xv(:,1,i));
-    lambda_v(i,5) = lambda_v(i,1);
+    lambda_v(i,4) = lambda_v(i,1);
     lim = ceil(length(find(isnan(Xv(:,2,i))==0))/2);
-    xfit = Xv(1:lim,1,i) + max(Xv(:,1,i));
-    yfit = Xv(:,:,i); yfit(find(prod(isnan(yfit(:,:)),2)==1),:)=[];
+    x = Xv(1:lim,1,i) + max(Xv(:,1,i));
+    y = Xv(:,:,i); yfit(find(prod(isnan(yfit(:,:)),2)==1),:)=[];
+    Lower = [-Inf,0,0];
+    Upper = [];
     
-    yfitL = abs(yfit(1:lim,2));
-    %     [lambda_v(i,2) , lambda_v(i,3)]  = fitCoherenceLength(xfit, yfitL, [0, yfitL(1), 0, 100*rand], 'off');
+    %LEFT edge
+    yfitL = abs(y(1:lim,2));
     Start = [yfitL(1),randn,randn];
-    try
-        [f gof] = fit(xfit, yfitL, ft,'StartPoint',Start,'Lower',[-Inf,0,0],'Upper',[]);
-        lambda_v(i,2) = f.l;
-        lambda_v(i,3) = gof.rsquare;
-        lambda_v(i,4) = yfit(1,2);
-        
-%             figure(50); clf; hold on;
-%             xx = xfit;
-%             yyL = f.b*exp(-(xx-f.x0)/f.l);
-%             plot(xx,yfitL,'ko');
-%             plot(xx,yyL,'r-');
-        
-    catch
-        lambda_v(i,2) = NaN;
-        lambda_v(i,3) = NaN;
-        lambda_v(i,4) = NaN
-    end
+    [lambda_v(i,2) lambda_v(i,3)] = fitLength('exponential', x, yfitL, Start, Lower, Upper);
     
-    
-    
-    
+    %RIGHT edge
     yfitR = abs(flip(yfit(end-lim+1:end,2)));
-    %     [lambda_v(i,4) , lambda_v(i,5)]  = fitCoherenceLength(xfit, yfitR, [0, yfitR(1), 0, 100*rand], 'off');
-    Start = [,yfitR(1),randn,randn];
-    try
-        [f gof] = fit(xfit, yfitR, ft,'StartPoint',Start,'Lower',[-Inf,0,0],'Upper',[]);
-        lambda_v(i,6) = f.l;
-        lambda_v(i,7) = gof.rsquare;
-        lambda_v(i,8) = yfit(end,2);
-        
-%         figure(50);
-%         xx = xfit;
-%         yyR = f.b*exp(-(xx-f.x0)/f.l);
-%         plot(xx,yfitR,'ks');
-%         plot(xx,yyR,'b-');
-        
-    catch
-        lambda_v(i,6) = NaN;
-        lambda_v(i,7) = NaN;
-        lambda_v(i,8) = NaN;
-    end
-    
-
-    
+    Start = [yfitR(1),randn,randn];
+    [lambda_v(i,5) lambda_v(i,6)] = fitLength('exponential', x, yfitR, Start, Lower, Upper);
 end
-
 lambda_v = sortrows(lambda_v,1);
 
-lambda_v2 = [lambda_v(:,1:4) ; lambda_v(:,5:8)];
-
-% lambda_v2 = reshape(lambda_v(:,[1,4,2,5,3,6,4,8]),[],4);
+% reshape lamba to merge both edges in a single vector
+lambda_v2 = [lambda_v(:,1:3) ; lambda_v(:,4:6)];
 lambda_v2 = sortrows(lambda_v2,1);
 lambda_v2(find(isnan(lambda_v2(:,2))==1),:) = [];
 lambda_v2(find(lambda_v2(:,3)<0.8),:)=[];
