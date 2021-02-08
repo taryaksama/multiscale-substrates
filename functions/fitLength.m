@@ -27,6 +27,8 @@ switch model
         return
 end
 
+Start = []; Lower = []; Upper = [];
+% /!\ ADD ERROR IF NO VARARGIN ARE ENTERED
 Start = varargin{1}; % starting point
 Lower = varargin{2}; % lower boundaries
 Upper = varargin{3}; % upper boundaries

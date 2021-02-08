@@ -168,7 +168,7 @@ for i = 1:size(Xv,3)
     lambda_v(i,1) = 2*max(Xv(:,1,i));
     lambda_v(i,4) = lambda_v(i,1);
     lim = ceil(length(find(isnan(Xv(:,2,i))==0))/2);
-    x = Xv(1:lim,1,i) + max(Xv(:,1,i));
+    xfit = Xv(1:lim,1,i) + max(Xv(:,1,i));
     y = Xv(:,:,i); yfit(find(prod(isnan(yfit(:,:)),2)==1),:)=[];
     Lower = [-Inf,0,0];
     Upper = [];
@@ -176,12 +176,12 @@ for i = 1:size(Xv,3)
     %LEFT edge
     yfitL = abs(y(1:lim,2));
     Start = [yfitL(1),randn,randn];
-    [lambda_v(i,2) lambda_v(i,3)] = fitLength('exponential', x, yfitL, Start, Lower, Upper);
+    [lambda_v(i,2) lambda_v(i,3)] = fitLength('exponential', xfit, yfitL, Start, Lower, Upper);
     
     %RIGHT edge
     yfitR = abs(flip(yfit(end-lim+1:end,2)));
     Start = [yfitR(1),randn,randn];
-    [lambda_v(i,5) lambda_v(i,6)] = fitLength('exponential', x, yfitR, Start, Lower, Upper);
+    [lambda_v(i,5) lambda_v(i,6)] = fitLength('exponential', xfit, yfitR, Start, Lower, Upper);
 end
 lambda_v = sortrows(lambda_v,1);
 
@@ -193,98 +193,83 @@ lambda_v2(find(lambda_v2(:,3)<0.8),:)=[];
 
 %% 4. velocity direction
 
-% profile
+% profiles
 Xang = NaN*ones(100,2,length(d));
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
-    if d(i).isdir==0
-        
-        load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
-        
-        px2mic = setpx2mic(d(i).name,'PIV');
-        x = (data.Grid - data.Width/2) * px2mic;
-        Xang(1:length(x),1,i) = x;
-        Xang(1:length(x),2,i) = data.Profile.ang;
-        
+    if d(i).isdir==1
+        continue
     end
+    
+    load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
+    px2mic = setpx2mic(d(i).name,'PIV');
+    
+    %profiles
+    x = (data.Grid - data.Width/2) * px2mic;
+    Xang(1:length(x),1,i) = x;
+    Xang(1:length(x),2,i) = data.Profile.ang;
 end
 Xang(:,:,find(prod(prod(isnan(Xang(:,:,:)),2))==1)) = [];
 
+%binned data
 for i = 1:length(bw)-1
     Xang_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-    [Xang_bin{i,2}, Xang_bin{i,3}, Xang_bin{i,4}] = vecBin2(Xang, [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'angle');
+    [Xang_bin{i,2}, Xang_bin{i,3}, Xang_bin{i,4}] = ...
+        vecBin2(Xang, [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'Nematic Angle');
 end
 
-
-%decay length
+%coherence length
 lambda_tv = NaN*ones(size(Xang,3),5);
 for i = 1:size(Xang,3)
     clc; disp([num2str(i),'/',num2str(size(Xang,3))]);
     
     lambda_tv(i,1) = 2*max(Xang(:,1,i));
+    lambda_tv(i,4) = lambda_tv(i,1);
     xfit = Xang(2:4,1,i) + max(Xang(:,1,i));
     yfit = Xang(:,:,i); yfit(find(prod(isnan(yfit(:,:)),2)==1),:)=[];
     
     if length(yfit)>5
+        %LEFT edge
         yfitL = abs(yfit(2:4,2));
-        [lambda_tv(i,2) , lambda_tv(i,3)]  = fitCoherenceLength(xfit, yfitL, 'off');
-        yfitR = abs(flip(yfit(end-3:end-1,2)))
-        [lambda_tv(i,4) , lambda_tv(i,5)]  = fitCoherenceLength(xfit, yfitR, 'off');
+        [lambda_tv(i,2) , lambda_tv(i,3)]  = fitLength('sigmoid', xfit, yfitL);
+        %RIGHT edge
+        yfitR = abs(flip(yfit(end-3:end-1,2)));
+        [lambda_tv(i,5) , lambda_tv(i,6)]  = fitLength('sigmoid', xfit, yfitR);
     end
-end
-
-for i = 1:size(Xang_bin,1)
-    clc;
-    
-    if (isempty(Xang_bin{i,2}))==1
-        continue
-    else
-        if (size(Xang_bin{i,3}(:,1),1)<4)==1
-            continue
-        end
-    end
-    
-    Xang_bin{i,5}(:,1) = 2*max(Xang_bin{i,2}(:,1));
-    xfit = Xang_bin{i,3}(2:4,1) + max(Xang_bin{i,3}(:,1));
-    yfit = abs(Xang_bin{i,3}(:,2));
-    
-    yfitL = yfit(2:4);
-    [Xang_bin{i,5}(:,2) , Xang_bin{i,5}(:,3)]  = fitCoherenceLength(xfit, yfitL, 'off');
-    yfitR = flip(yfit(end-3:end-1));
-    [Xang_bin{i,5}(:,4) , Xang_bin{i,5}(:,5)]  = fitCoherenceLength(xfit, yfitR, 'off');
 end
 
 %% 5. velocity norm
 
-% profile
+% profiles
 XV = NaN*ones(100,2,length(d));
 Vnorm = NaN*ones(length(d),2);
 for i = 1:length(d)
     clc; disp([num2str(i),'/',num2str(length(d))]);
-    if d(i).isdir==0
-        
-        load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
-        
-        px2mic = setpx2mic(d(i).name,'PIV');
-        x = (data.Grid - data.Width/2) * px2mic;
-        XV(1:length(x),1,i) = x;
-        XV(1:length(x),2,i) = data.Profile.V  * px2mic;
-        
-        Vnorm(i,1) = data.Width * px2mic;
-        Vnorm(i,2) = data.Norm2.XYT.V * px2mic^2;
-        
+    if d(i).isdir==1
+        continue
     end
+    
+    load([pathname,'\analysis\velocity data\',strrep(d(i).name,'.tif','.mat')]);
+    px2mic = setpx2mic(d(i).name,'PIV');
+    
+    %profiles
+    x = (data.Grid - data.Width/2) * px2mic;
+    XV(1:length(x),1,i) = x;
+    XV(1:length(x),2,i) = data.Profile.V  * px2mic;
+    
+    %norm
+    Vnorm(i,1) = data.Width * px2mic;
+    Vnorm(i,2) = data.Norm2.XYT.V * px2mic^2;
 end
 XV(:,:,find(prod(prod(isnan(XV(:,:,:)),2))==1)) = [];
 Vnorm(find(prod(isnan(Vnorm(:,:)),2)==1),:) = [];
 
+%binned data
 for i = 1:length(bw)-1
     XV_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
     [XV_bin{i,2}, XV_bin{i,3}, XV_bin{i,4}] = vecBin2(XV, [bw(i) , bw(i+1)], bx_sz, ep, 'achiral', 'XY');
     [XV_bin{i,5}(:,1), XV_bin{i,5}(:,2), XV_bin{i,5}(:,3)] = vecBin1(Vnorm, [bw(i) bw(i+1)], ep, 'XY');
 end
-
-
 
 %% SAVING
 
