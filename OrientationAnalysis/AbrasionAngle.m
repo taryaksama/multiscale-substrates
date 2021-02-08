@@ -239,12 +239,12 @@ end
 
 %% FIGURES
 
+%theta vs. width (several alpha)
+figure(10);
+clf; hold on;
+cmap = colormap(cool(length(abin)-1));
 for i = 1:length(abin)-1
-    %theta vs. alpha
-    figure(10);
-    clf; hold on;
-    cmap = colormap(jet(length(abin)));
-    plot(AngDev{i,2}(:,1),AngDev{i,2}(:,2),'o-','Color',cmap(ii,:));
+    plot(AngDev{i,2}(:,1),AngDev{i,2}(:,2),'o-','Color',cmap(i,:));
 end
 
 %model fit
@@ -252,7 +252,7 @@ figure(11); clf; hold on;
 xfit = AngDev_bin(:,1);
 yfit = AngDev_bin(:,2);
 plot(xfit,yfit,'ko');
-c = colormap(cool(length(visc)));
+cmap = colormap(cool(length(visc)));
 for k = 1:length(visc);
     a = coeffModel(k).a;
     b = coeffModel(k).b;
