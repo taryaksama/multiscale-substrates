@@ -187,130 +187,54 @@ for k = 1:length(visc);
         'nu', f.nu);
 end
 
-%% 2. VELOCITY
+%% 2. Velocity analysis
 
-%% gather data
+% load data
 for i = 1:length(d_piv)
-%     for i = 1;
-        clc; disp([num2str(i),'/',num2str(length(d_piv))]);
-        
-        
-        load([pathname,'\mCherry\analysis\velocity data\',strrep(d_piv(i).name,'.tif','.mat')]);
-        
-        px2mic_piv = setpx2mic(d_piv(i).name,'PIV');
-        
-        date = getExpDate(d_piv(i).name);
-        fov = getExpFOV(d_piv(i).name);
-        
-        nfov = str2num(fov(2:strfind(fov,'_')-1));
-        idxdate = find(strcmp([T.date],date));
-        
-        for ii = 1:length(idxdate)
-            if (nfov >= T.fovi(idxdate(ii))) && (nfov <= T.fovf(idxdate(ii)))
-                alpha = T.alpha(idxdate(ii));
-            end
-        end
-        
-        %screening length
-        clearvars lambda_v
-        midv = ceil(size(data_piv.Grid,1)/2);
-        ft = fittype('b*exp(-(x-x0)/l)','coefficients',{'b','x0','l'});
-        
-        xfitL = data_piv.Grid(1:midv) * px2mic_piv;
-        yfitL = data_piv.Profile.v(1,1:midv)';
-        Start = [yfitL(1),randn,randn];
-        try
-            [f gof] = fit(xfitL, yfitL, ft,'StartPoint',Start,'Lower',[-Inf,0,0],'Upper',[]);
-            lambda_v(:,1) = f.l;
-            lambda_v(:,2) = gof.rsquare;
-            
-%             figure(50); clf; hold on;
-%             xx = xfitL;
-%             yyL = f.b*exp(-(xx-f.x0)/f.l);
-%             plot(xx,yfitL,'ko');
-%             plot(xx,yyL,'r-');
-            
-        catch
-            lambda_v(:,1) =NaN;
-            lambda_v(:,2) = NaN;
-        end
-        
-        xfitR = data_piv.Grid(1:midv) * px2mic_piv;
-        yfitR = flip(data_piv.Profile.v(1,end-midv+1:end))';
-        Start = [yfitL(1),randn,randn];
-        try
-            [f gof] = fit(xfitR, yfitR, ft,'StartPoint',Start,'Lower',[-Inf,0,0],'Upper',[]);
-            lambda_v(:,3) = f.l;
-            lambda_v(:,4) = gof.rsquare;
-            
-%             figure(50); hold on;
-%             xx = xfitR;
-%             yyR = f.b*exp(-(xx-f.x0)/f.l);
-%             plot(xx,yfitR,'ko');
-%             plot(xx,yyR,'b-');
-            
-        catch
-            lambda_v(:,3) =NaN;
-            lambda_v(:,4) = NaN;
-        end
-
-        % save
-        Vw{i,1} = [date,'_',fov];                                 %date/fov
-        Vw{i,2} = data_piv.Width * px2mic_piv;                     %width
-        Vw{i,3} = alpha;                                          %alpha (abrasions)
-        Vw{i,4}(:,1) = (data_piv.Grid - data_piv.Width/2) * px2mic_piv;
-        Vw{i,4}(:,2:3) =  data_piv.Profile.v'  * px2mic_piv;
-        Vw{i,5} = lambda_v;                                     %screening length
-        
-end
-
-%% bin
-
-% binning parameters
-abin = -100:10:100;
-bw_sz = 100;
-bw = 0:bw_sz:1200;
-ep = 0;
-bx_sz = 20;
-
-figure(30); clf; hold on;
-cmap = colormap(jet(length(abin)));
-
-for ii = 1:length(abin)-1
-% for ii = 15;
-
-clearvars Vw_abin B Vw1_bin C
-
-alpha = [Vw{:,3}];
-Vw_abin = Vw(find(abin(ii)<abs(alpha) & abs(alpha)<abin(ii+1)),:);
-
-if isempty(Vw_abin)==1
-    continue
-end
-
-for j = 1:size(Vw_abin,1)
-    clearvars l
+    clc; disp([num2str(i),'/',num2str(length(d_piv))]);
     
-    C(j,1) = Vw_abin{j,2}; C(j,3) = Vw_abin{j,5}(:,1);
-    C(j,2) = Vw_abin{j,2}; C(j,4) = Vw_abin{j,5}(:,3);
+    %get FOV information
+    load([pathname,'\mCherry\analysis\velocity data\',strrep(d_piv(i).name,'.tif','.mat')]);
+    px2mic_piv = setpx2mic(d_orient(i).name,'PIV');
+    date = getExpDate(d_piv(i).name);
+    fov = getExpFOV(d_piv(i).name);
+    nfov = str2num(fov(2:strfind(fov,'_')-1));
+    idxdate = find(strcmp([T.date],date));
     
-end
-
-C = reshape(C,[],2);
-C(find(C(:,2)<0.9),:) = [];
-
-%lambda_v vs width
-VV{ii,1} = [num2str(abin(ii)),' to ',num2str(abin(ii+1))];
-VV{ii,2} = mean(C(:,2));
-
-%figure
-
-figure(21); 
-subplot(1,2,1); hold on;
-plot(C(:,1), C(:,2),'.','Color',cmap(ii,:));
-plot(0:1200, mean(C(:,2))*ones(1,1201),'-','Color',cmap(ii,:));
-axis([0 1200 0 200])
-
+    %get abrasions angle
+    for ii = 1:length(idxdate)
+        if (nfov >= T.fovi(idxdate(ii))) && (nfov <= T.fovf(idxdate(ii)))
+            alpha = T.alpha(idxdate(ii));
+        end
+    end
+    
+    %screening length
+    clearvars lambda_v
+    midv = ceil(size(data_piv.Grid,1)/2);
+    Lower = [-Inf,0,0];
+    Upper = [];
+    
+    %LEFT edge
+    xfitL = data_piv.Grid(1:midv) * px2mic_piv;
+    yfitL = data_piv.Profile.v(1,1:midv)';
+    Start = [yfitL(1),randn,randn];
+    [lambda_v(i,1) lambda_v(i,2)] = fitLength('exponential', xfitL, yfitL, Start, Lower, Upper);
+    
+    %RIGHT edge
+    xfitR = data_piv.Grid(1:midv) * px2mic_piv;
+    yfitR = flip(data_piv.Profile.v(1,end-midv+1:end))';
+    Start = [yfitR(1),randn,randn];
+    [lambda_v(i,3) lambda_v(i,4)] = fitLength('exponential', xfitR, yfitR, Start, Lower, Upper);
+    
+    % save in Vw
+    Vw{i,1} = [date,'_',fov]; %date_fov
+    Vw{i,2} = data_piv.Width * px2mic_piv; %width
+    Vw{i,3} = alpha; %microabrasions angle (alpha)
+    %profile
+    Vw{i,4}(:,1) = (data_piv.Grid - data_piv.Width/2) * px2mic_piv;
+    Vw{i,4}(:,2:3) =  data_piv.Profile.v'  * px2mic_piv;
+    Vw{i,5} = lambda_v; %screening length
+    
 end
 
 %% FIGURES
@@ -322,7 +246,7 @@ for i = 1:length(abin)-1
     cmap = colormap(jet(length(abin)));
     plot(AngDev{i,2}(:,1),AngDev{i,2}(:,2),'o-','Color',cmap(ii,:));
 end
-    
+
 %model fit
 figure(11); clf; hold on;
 xfit = AngDev_bin(:,1);
@@ -333,38 +257,7 @@ for k = 1:length(visc);
     a = coeffModel(k).a;
     b = coeffModel(k).b;
     nu = coeffModel(k).nu;
-
-ymodel = a*( (sind(2*xfit).*(nu*cosd(2*xfit)-1)) ./ (b+nu^2+2*nu*cosd(2*xfit)+1) );
-plot(xfit,ymodel,'-','Color',c(k,:));
+    
+    ymodel = a*( (sind(2*xfit).*(nu*cosd(2*xfit)-1)) ./ (b+nu^2+2*nu*cosd(2*xfit)+1) );
+    plot(xfit,ymodel,'-','Color',c(k,:));
 end
-
-
-
-%%
-
-% clearvars AT
-% 
-% thresh = find(and(550<[A{:,2}],650>[A{:,2}])==1);
-% 
-% AT(:,1) = [A{thresh,3}];
-% AT(:,2:3) = reshape([A{thresh,4}],2,[])';
-% 
-% figure(1); clf;
-% subplot(1,2,1);
-% plot(AT(:,1), AT(:,2), 'ko');
-% xlabel('\alpha'); ylabel('\theta_{mid}');
-% subplot(1,2,2); hold on;
-% plot(AT(:,1), AT(:,2)-AT(:,1), 'ko');
-% plot([-90 90],[0 0],'k--');
-% xlabel('\alpha'); ylabel('\theta_{mid} - \alpha');
-% 
-% %%
-% 
-% for t = 1:length(bt)-1
-%     [AT_bin(t,1), AT_bin(t,2), AT_bin(t,3), AT_bin(t,4)] = vecBin1([AT(:,1) AT(:,2)-AT(:,1) AT(:,3)],[bt(t) bt(t+1)],0,'angle');
-% end
-% 
-% figure(2); clf; hold on;
-% plot(AT(:,1), AT(:,2)-AT(:,1), 'ko');
-% plot([-90 90],[0 0],'k--');
-% errorbar(AT_bin(:,1), AT_bin(:,2), AT_bin(:,3), 'rs')
