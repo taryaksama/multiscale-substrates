@@ -10,6 +10,7 @@
 %   raw dataset)
 %   * 2. orientation analysis
 %   * 3. velocity analysis
+%   * FIGURES
 
 %% 0. set parameters of experiment
 
@@ -25,7 +26,7 @@ bw_sz = 100; % width increment
 bw = 0:bw_sz:1200; % width range
 ep = 0; % origin shift
 bx_sz = 20; % X-value increment (for profiles binning)
-bt = -90:10:90; % angle bin
+abin = -100:10:100; % angle bin (degrees)
 
 % set and create analysis folder
 pathname = 'G:\ANALYSIS\transition stripes abrasions\C2C12 stripes abrasions\defect free';
@@ -60,21 +61,19 @@ end
 
 %% 2. Orientation analysis
 
-%% gather data
+% load data
 for i = 1:length(d_orient)
-   
     clc; disp([num2str(i),'/',num2str(length(d_orient))]);
     
+    %get FOV information
     load([pathname,'\mCherry\analysis\orientation data\',strrep(d_orient(i).name,'.tif','.mat')]);
-    
     px2mic_orient = setpx2mic(d_orient(i).name,'orientation');
-    
     date = getExpDate(d_orient(i).name);
     fov = getExpFOV(d_orient(i).name);
-    
     nfov = str2num(fov(2:strfind(fov,'_')-1));
     idxdate = find(strcmp([T.date],date));
     
+    %get abrasions angle
     for ii = 1:length(idxdate)
         if (nfov >= T.fovi(idxdate(ii))) && (nfov <= T.fovf(idxdate(ii)))
             alpha = T.alpha(idxdate(ii));
@@ -82,200 +81,110 @@ for i = 1:length(d_orient)
     end
     
     %coherence length
-     clearvars lambda
-        midt = ceil(size(data_orient.AverageAngle.Profile,1)/2); 
-    ft = fittype('b+(t-b)./(1+(l./x).^H)','coefficients',{'b','t','l','H'});
-
+    clearvars lambda
+    midt = ceil(size(data_orient.AverageAngle.Profile,1)/2);
+    Lower = [-Inf,-Inf,0,-Inf];
+    Upper = [Inf,Inf,Inf,-1];
+    
+    %LEFT edge
     xfitL = data_orient.AverageAngle.Profile(1:midt,1) * px2mic_orient;
     yfitL = data_orient.AverageAngle.Profile(1:midt,2);
     Start = [yfitL(end),yfitL(1),randn,-1];
-      try
-        [f gof] = fit(xfitL, yfitL, ft,'StartPoint',Start,'Lower',[-Inf,-Inf,0,-Inf],'Upper',[Inf,Inf,Inf,-1]);
-        lambda(:,1) = f.l;
-        lambda(:,2) = gof.rsquare;
-        
-%         figure(50); clf; hold on;
-%         xxL = xfitL;
-%         yyL = f.b+((f.t-f.b)./(1+(f.l./xxL).^f.H));
-%         plot(xxL,yfitL,'ko');
-%         plot(xxL,yyL,'r-');
-%         title(['l = ',num2str(f.l),', r2 = ',num2str(gof.rsquare)]);
-    catch
-        lambda(:,1) = NaN;
-        lambda(:,2) = NaN;
-      end
+    [lambda(i,1) lambda(i,2)] = fitLength('sigmoid', xfitL, yfitL, Start, Lower, Upper);
     
-      xfitR = data_orient.AverageAngle.Profile(1:midt,1) * px2mic_orient;
-      yfitR = flip(data_orient.AverageAngle.Profile(end-midt+1:end,2));
+    %RIGHT edge
+    xfitR = data_orient.AverageAngle.Profile(1:midt,1) * px2mic_orient;
+    yfitR = flip(data_orient.AverageAngle.Profile(end-midt+1:end,2));
     Start = [yfitR(end),yfitR(1),randn,-1];
-    try
-        [f gof] = fit(xfitR, yfitR, ft,'StartPoint',Start,'Lower',[-Inf,-Inf,0,-Inf],'Upper',[Inf,Inf,Inf,-1]);
-        lambda(:,3) = f.l;
-        lambda(:,4) = gof.rsquare;
-        
-%         figure(50);
-%         xxR = xfitR;
-%         yyR = f.b+((f.t-f.b)./(1+(f.l./xxR).^f.H));
-%         plot(xxR,yfitR,'ks');
-%         plot(xxR,yyR,'b-');
-        
-    catch
-        lambda(:,3) = NaN;
-        lambda(:,4) = NaN;
-    end
+    [lambda(i,3) lambda(i,4)] = fitLength('sigmoid', xfitR, yfitR, Start, Lower, Upper);
     
-    %save
-    Angw{i,1} = [date,'_',fov];                                 %date/fov
-    Angw{i,2} = data_orient.Width * px2mic_orient;                     %width
-    Angw{i,3} = alpha;                                          %alpha (abrasions)
-    xprofile = data_orient.AverageAngle.Profile(:,1);           %orientation profile
+    %save in Angw
+    Angw{i,1} = [date,'_',fov]; %date_FOV
+    Angw{i,2} = data_orient.Width * px2mic_orient; %stripe width
+    Angw{i,3} = alpha; %abrasions angle
+    %orientation profile
+    xprofile = data_orient.AverageAngle.Profile(:,1);
     Angw{i,4}(:,1) = (xprofile - max(xprofile)/2) * px2mic_orient;
     yprofile = data_orient.AverageAngle.Profile(:,2);
     Angw{i,4}(:,2) = yprofile;
     sprofile = data_orient.AverageAngle.Profile(:,3);
     Angw{i,4}(:,3) = sprofile;
-    Angw{i,5} = lambda;                                         %coherence length
-    
+    Angw{i,5} = lambda; %coherence length
 end
 
-%% theta vs width
-
-
-% binning parameters
-abin = -100:10:100; %-100:10:100
-bw_sz = 100;
-bw = 0:bw_sz:1200;
-ep = 0;
-bx_sz = 20;
-
-figure(20); clf; hold on;
-cmap = colormap(jet(length(abin)));
-
+% binning by microabrasions angle
 for ii = 1:length(abin)-1
-% for ii = 15;
-
-clearvars Angw_abin B Angw1_bin C
-
-alpha = [Angw{:,3}];
-Angw_abin = Angw(find(abin(ii)<abs(alpha) & abs(alpha)<abin(ii+1)),:);
-
-if isempty(Angw_abin)==1
-    continue
-end
-
-for j = 1:size(Angw_abin,1)
-    clearvars l
-    mid = ceil(size(Angw_abin{j,4},1)/2);
-    B(j,1) = Angw_abin{j,2};
-    B(j,2:3) = abs(Angw_abin{j,4}(mid,2:3));
+    clearvars Angw_abin midAng Angw1_bin 
     
-    C(j,1) = Angw_abin{j,2}; C(j,3) = Angw_abin{j,5}(:,1);
-    C(j,2) = Angw_abin{j,2}; C(j,4) = Angw_abin{j,5}(:,3);
+    alpha = [Angw{:,3}];
+    Angw_abin = Angw(find(abin(ii)<abs(alpha) & abs(alpha)<abin(ii+1)),:);
+    if isempty(Angw_abin)==1
+        continue
+    end
     
+    % get orientation (in middle)
+    for j = 1:size(Angw_abin,1)
+        clearvars l
+        mid = ceil(size(Angw_abin{j,4},1)/2);
+        midAng(j,1) = Angw_abin{j,2};
+        midAng(j,2:3) = abs(Angw_abin{j,4}(mid,2:3));
+    end
+    
+    %theta vs width
+    Angw1_bin = NaN * ones(length(bw)-1,4);
+    for i = 1:length(bw)-1
+        [Angw1_bin(i,1), Angw1_bin(i,2), Angw1_bin(i,3), Angw1_bin(i,4)] = ...
+            vecBin1(midAng, [bw(i) bw(i+1)], ep, 'Nematic Angle');
+    end
+    Angw1_bin(find(prod(isnan(Angw1_bin)==1,2)),:) = [];
+    
+    AngDev{ii,1} = [num2str(abin(ii)),' to ',num2str(abin(ii+1))];
+    AngDev{ii,2} = Angw1_bin;
 end
 
-C = reshape(C,[],2);
-C(find(C(:,2)<0.8),:) = [];
-
-%theta vs width
-Angw1_bin = NaN * ones(length(bw)-1,4);
-for i = 1:length(bw)-1
-    [Angw1_bin(i,1), Angw1_bin(i,2), Angw1_bin(i,3), Angw1_bin(i,4)] = vecBin1(B, [bw(i) bw(i+1)], ep, 'Nematic Angle');
-end
-Angw1_bin(find(prod(isnan(Angw1_bin)==1,2)),:) = [];
-
-
-AA{ii,1} = [num2str(abin(ii)),' to ',num2str(abin(ii+1))];
-AA{ii,2} = Angw1_bin;
-AA{ii,3} = mean(C(:,2));
-
-%figure
-figure(20); hold on;
-plot(Angw1_bin(:,1),Angw1_bin(:,2),'o-','Color',cmap(ii,:));
-
-figure(21); 
-subplot(1,2,1); hold on;
-plot(C(:,1), C(:,2),'.','Color',cmap(ii,:));
-plot(0:1200, mean(C(:,2))*ones(1,1201),'-','Color',cmap(ii,:));
-
-end
-
-% profiles
-% B = NaN*ones(100,3,size(Angw_abin,1));
-% for j = 1:size(Angw_abin,1)
-%     clearvars l
-%     l = size(Angw_abin{j,4},1);
-%     B(1:l,:,j) = [Angw_abin{j,4}];
-% end
-% 
-% Angw_bin = cell(length(bw)-1, 3);
-% for i = 1:length(bw)-1
-%     Angw_bin{i,1} = {[num2str(bw(i)),' - ',num2str(bw(i+1))]};
-%     [Angw_bin{i,2}, Angw_bin{i,3}, Angw_bin{i,4}, Angw_bin{i,5}] = vecBin2(B(:,1:2,:), [bw(i) , bw(i+1)], bx_sz, ep, 'abs', 'Nematic Angle');
-% end
-% 
-% % figure
-% figure(10); clf; hold on;
-% cmap = colormap(cool(size(Angw_bin,1)));
-% for k = 1:size(Angw_bin,1)
-%     if isempty(Angw_bin{k,4})==1
-%         continue
-%     end
-%     plot(Angw_bin{k,4}(:,1),Angw_bin{k,4}(:,2),'.-','Color',cmap(k,:));
-% end
-
-%% theta - alpha
-
-clearvars A B ta
-
-% range of interest
-blim = 150;
-ulim = 250;
-
+% load ThetaAlpha
+blim = input('lower width limit : \n');
+ulim = input('upper width limit : \n');
 kk = 1;
 for k = 1:size(Angw,1)
-    
     if Angw{k,2}<blim || Angw{k,2}>ulim
         continue
     end
     
-    ta(kk,1) = Angw{k,3};
+    ThetaAlpha(kk,1) = Angw{k,3}; %alpha
     midt = ceil(size(Angw{k,4},1)./2);
-    ta(kk,2) = Angw{k,4}(midt,2);
-    ta(kk,3) = Angw{k,4}(midt,3);
+    ThetaAlpha(kk,2) = Angw{k,4}(midt,2); % middle cell angle
+    ThetaAlpha(kk,3) = Angw{k,4}(midt,3);
     
     kk = kk+1;
 end
 
-data = ta(:,1:2);
-
-abin = 0:1:100;
-
-% A = [abs(data(:,1)) abs(data(:,2))-abs(data(:,1))];
-A = [(data(:,1)) (data(:,2))];
+%binned data
 for i = 1:length(abin)-1
-[B(i,1), B(i,2), B(i,3), B(i,4)] = vecBin1(A, [abin(i) abin(i+1)], ep, 'Nematic Angle');
+    dataset = [ThetaAlpha(:,1), ThetaAlpha(:,2)-ThetaAlpha(:,1)];
+    [AngDev_bin(i,1), AngDev_bin(i,2), AngDev_bin(i,3), AngDev_bin(i,4)] = vecBin1(dataset, [abin(i) abin(i+1)], ep, 'Nematic Angle');
+    AngDev_bin(find(prod(isnan(AngDev_bin)==1,2)),:) = [];
 end
-B(find(prod(isnan(B)==1,2)),:) = [];
+AngDev_bin(find(prod(isnan(B)==1,2)),:) = [];
 
-xfit = B(:,1);
-yfit = B(:,2);
-
+%model fit (see Chapter III.4. for more details)
+xfit = AngDev_bin(:,1);
+yfit = AngDev_bin(:,2);
 visc = 4*[0.01 0.05 0.1 0.5 1 5 10 50 100];
-c = colormap(cool(length(visc)));
 for k = 1:length(visc);
-StartPoint = [randn visc(k) -1]; %starting points
-exclude = []; %exclude points
-lb = [-Inf 0 -Inf]; %lower bound
-ub = [0 Inf 0]; %upper bound
-
-ft = fittype('a*( (sind(2*x)*(nu*cosd(2*x)-1)) / (b+nu^2+2*nu*cosd(2*x)+1) )','coefficients',{'a','b','nu'});
-[f gof] = fit(xfit, yfit, ft,'StartPoint',StartPoint,'Exclude',exclude,'Lower',lb,'Upper',ub)
-
-figure(51); hold on;
-plot(xfit,yfit,'ko');
-ymodel = f.a*( (sind(2*xfit).*(f.nu*cosd(2*xfit)-1)) ./ (f.b+f.nu^2+2*f.nu*cosd(2*xfit)+1) );
-plot(xfit,ymodel,'-','Color',c(k,:));
+    Start = [randn visc(k) -1]; %starting points
+    Lower = [-Inf 0 -Inf]; %lower bound
+    Upper = [0 Inf 0]; %upper bound
+    
+    ft = fittype('a*( (sind(2*x)*(nu*cosd(2*x)-1)) / (b+nu^2+2*nu*cosd(2*x)+1) )',...
+        'coefficients',{'a','b','nu'});
+    [f gof] = fit(xfit, yfit, ft,'StartPoint',Start,'Lower',Lower,'Upper',Upper)
+    
+    coeffModel(k) = struct(...
+        'viscosity', visc(k), ...
+        'a', f.a, ...
+        'b', f.b, ...
+        'nu', f.nu);
 end
 
 %% 2. VELOCITY
@@ -404,10 +313,30 @@ axis([0 1200 0 200])
 
 end
 
-%%
+%% FIGURES
 
+for i = 1:length(abin)-1
+    %theta vs. alpha
+    figure(10);
+    clf; hold on;
+    cmap = colormap(jet(length(abin)));
+    plot(AngDev{i,2}(:,1),AngDev{i,2}(:,2),'o-','Color',cmap(ii,:));
+end
+    
+%model fit
+figure(11); clf; hold on;
+xfit = AngDev_bin(:,1);
+yfit = AngDev_bin(:,2);
+plot(xfit,yfit,'ko');
+c = colormap(cool(length(visc)));
+for k = 1:length(visc);
+    a = coeffModel(k).a;
+    b = coeffModel(k).b;
+    nu = coeffModel(k).nu;
 
-
+ymodel = a*( (sind(2*xfit).*(nu*cosd(2*xfit)-1)) ./ (b+nu^2+2*nu*cosd(2*xfit)+1) );
+plot(xfit,ymodel,'-','Color',c(k,:));
+end
 
 
 
