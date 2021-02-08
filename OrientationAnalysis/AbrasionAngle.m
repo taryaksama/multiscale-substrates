@@ -6,86 +6,59 @@
 %
 % ANALYSIS:
 %   * 0. parameters setting
-%   * 1. general orientation analysis for each FOV (histograms, over time,
-%   averaged, ...)
-%   * 2. cell orientation vs. stripe width
-%   * 3. profiles of orientation
-%   * 4. coherence length
+%   * 1. angle and PIV comutation of stripes with tilted abrasions (from
+%   raw dataset)
+%   * 2. orientation analysis
+%   * 3. velocity analysis
+
+%% 0. set parameters of experiment
 
 clear all
 clc
 
-pathname = 'G:\ANALYSIS\transition stripes abrasions\C2C12 stripes abrasions angle';
-mkdir([pathname,'\mCherry\analysis']);
+addpath('..\functions');
+fig = 'on'; % display figures
+exp_name = input('Experiment name ? \n','s'); % enter experiment name
 
-% d = dir([pathname,'\mCherry\orient']); d(find([d.isdir]==1),:)=[];
-d_orient = dir([pathname,'\mCherry\orient\']); d_orient(find([d_orient.isdir]==1),:)=[];
-d_piv = dir([pathname,'\mCherry\images\']); d_piv(find([d_piv.isdir]==1),:)=[];
+% binning parameters
+bw_sz = 100; % width increment
+bw = 0:bw_sz:1200; % width range
+ep = 0; % origin shift
+bx_sz = 20; % X-value increment (for profiles binning)
+bt = -90:10:90; % angle bin
 
+% set and create analysis folder
+pathname = 'G:\ANALYSIS\transition stripes abrasions\C2C12 stripes abrasions\defect free';
+mkdir([pathname,'\analysis']);
+d_orient = dir([pathname,'\orient\']); d_orient(find([d_orient.isdir]==1),:)=[];
+d_piv = dir([pathname,'\images\']); d_piv(find([d_piv.isdir]==1),:)=[];
 
-exp_name = 'C2C12_stripes_abrasions_angle';
-
-% T = readtable([pathname,'\abrasion_angle.csv']);
 T = readtable([pathname,'\abrasion_angle.csv']);
 
-bt = -90:10:90;
-
-%% 0.1 Angle
-
-dw = 32; % size of ROI
-r = 0.5; % overlap of ROIs
-
-for i = 1:length(d_orient)
-    clc;
-    disp('angle analysis');
-    disp([num2str(i),'/',num2str(length(d_orient))]);
-        AngleROI_v092020([pathname,'\mCherry\'], d_orient(i).name, dw, r, 'off');
-end
-
-%% 0.2 PIV
+%% 1. Orientation & PIV computation
+%from raw dataset
 
 dw = 32; % size of ROI
 r = 0.5; % overlap of ROIs
 dt = 0.25; % 4 frames per hour
 
-for i = 1041:length(d_piv)
-    clc; 
-    disp('piv analysis');
-    disp([num2str(i),'/',num2str(length(d_piv))]);
-    if d_piv(i).isdir==0
-        WritePivFiles_v092020([pathname,'\mCherry\'], d_piv(i).name, dw, r, dt, 'single', 'off');
-    end
+% orientation
+for i = 1:length(d_orient)
+    clc;
+    disp('angle analysis');
+    disp([num2str(i),'/',num2str(length(d_orient))]);
+    angleROI([pathname,'\mCherry\'], d_orient(i).name, dw, r, 'off');
 end
 
-%%
-% i=1;
-% for i = 1:length(d)
-%     
-%     load([pathname,'\mCherry\analysis\orientation data\',strrep(d(i).name,'.tif','.mat')]);
-%     
-%     px2mic = setpx2mic(d(i).name,'orientation');
-%     
-%     date = getExpDate(d(i).name);
-%     fov = getExpFOV(d(i).name);
-%     
-%     nfov = str2num(fov(2:strfind(fov,'_')-1));
-%     idxdate = find(strcmp([T.date],date));
-%     
-%     for ii = 1:length(idxdate)
-%         if (nfov >= T.fovi(idxdate(ii))) && (nfov <= T.fovf(idxdate(ii)))
-%             alpha = T.alpha(idxdate(ii));
-%         end
-%     end
-%     
-%     A{i,1} = [date,'_',fov];
-%     A{i,2} = data_orient.Width * px2mic;
-%     A{i,3} = alpha;
-%     mid = ceil(size(data_orient.AverageAngle.Profile,1)/2);
-%     A{i,4} = data_orient.AverageAngle.Profile(mid,2:3);
-%     
-% end
+% PIV
+for i = 1:length(d_piv)
+    clc;
+    disp('piv analysis');
+    disp([num2str(i),'/',num2str(length(d_piv))]);
+    writePivFiles([pathname,'\mCherry\'], d_piv(i).name, dw, r, dt, 'single', 'off');
+end
 
-%% 1. ORIENTATION
+%% 2. Orientation analysis
 
 %% gather data
 for i = 1:length(d_orient)
