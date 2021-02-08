@@ -28,9 +28,9 @@ ep = 0; % origin shift
 bx_sz = 20; % X-value increment (for profiles binning)
 
 % set and create analysis folder
-pathname = 'G:\ANALYSIS\transition stripes abrasions\C2C12 stripes abrasions\defect free';
-mkdir([pathname,'\analysis']);
-d = dir([pathname,'\orient']);
+pathname = '\example';
+mkdir([pathname,'\example\analysis']);
+d = dir([pathname,'\example\orient']);
 
 %% 1. compute average angle over stripe width
 
